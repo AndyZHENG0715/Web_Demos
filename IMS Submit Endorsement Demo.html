@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMS Endorsement Review Demo</title>
+    <!-- Bootstrap 5 CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Vue.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <style>
+        /* Custom styles can be added here if necessary */
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container mt-5">
+        <!-- Login Section -->
+        <div v-if="!isAuthenticated" class="login-container">
+            <h2 class="mb-4">Login</h2>
+            <form @submit.prevent="login" :class="{'was-validated': loginSubmitted && !loginValid}">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        v-model="loginUsername" 
+                        class="form-control" 
+                        :class="{'is-invalid': loginSubmitted && !loginValid.username}" 
+                        required>
+                    <div class="invalid-feedback">
+                        Username is required.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        v-model="loginPassword" 
+                        class="form-control" 
+                        :class="{'is-invalid': loginSubmitted && !loginValid.password}" 
+                        required>
+                    <div class="invalid-feedback">
+                        Password is required.
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+                <div v-if="loginError" class="mt-3 text-danger">
+                    Invalid username or password.
+                </div>
+            </form>
+        </div>
+
+        <!-- Endorsements Dashboard -->
+        <div v-else>
+            <!-- Logout Button -->
+            <div class="d-flex justify-content-end mb-3">
+                <button class="btn btn-danger btn-sm" @click="logout">Logout</button>
+            </div>
+
+            <!-- Page Header -->
+            <h2 class="mb-4">Endorsement Review Dashboard</h2>
+
+            <!-- Endorsements Table -->
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Internship Company</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Iterate over endorsements and display each endorsement's details -->
+                    <tr v-for="endorsement in endorsements" :key="endorsement.id">
+                        <td>{{ endorsement.studentName }}</td>
+                        <td>{{ endorsement.company }}</td>
+                        <td>
+                            <!-- Display the current status of the endorsement -->
+                            <span :class="statusClass(endorsement.status)">
+                                {{ endorsement.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <!-- Approve Button: Visible only if the endorsement is pending -->
+                            <button 
+                                v-if="endorsement.status === 'Pending'" 
+                                class="btn btn-success btn-sm me-2" 
+                                @click="approve(endorsement)">
+                                Approve
+                            </button>
+
+                            <!-- Reject Button: Visible only if the endorsement is pending -->
+                            <button 
+                                v-if="endorsement.status === 'Pending'" 
+                                class="btn btn-danger btn-sm me-2" 
+                                @click="reject(endorsement)">
+                                Reject
+                            </button>
+
+                            <!-- Request Resubmission Button: Visible only if the endorsement is pending -->
+                            <button 
+                                v-if="endorsement.status === 'Pending'" 
+                                class="btn btn-warning btn-sm" 
+                                @click="requestResubmission(endorsement)">
+                                Request Resubmission
+                            </button>
+                        </td>
+                    </tr>
+                    <!-- Display a message if there are no pending endorsements -->
+                    <tr v-if="endorsements.length === 0">
+                        <td colspan="4" class="text-center">No pending endorsements to review.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Feedback Section: Visible when an endorsement is being rejected or resubmitted -->
+            <div v-if="selectedEndorsement" class="mt-4">
+                <h5>
+                    <!-- Display appropriate heading based on the action -->
+                    Provide Feedback for: {{ selectedEndorsement.studentName }} 
+                    <span v-if="actionType === 'Reject'" class="text-danger">(Rejection)</span>
+                    <span v-else-if="actionType === 'Resubmit'" class="text-warning">(Resubmission Requested)</span>
+                </h5>
+                <!-- Feedback Form -->
+                <form @submit.prevent="submitFeedback" :class="{'was-validated': feedbackSubmitted && !feedbackValid}">
+                    <div class="mb-3">
+                        <label for="feedback" class="form-label">Feedback</label>
+                        <textarea 
+                            id="feedback" 
+                            v-model="feedback" 
+                            class="form-control" 
+                            :class="{'is-invalid': feedbackSubmitted && !feedbackValid}" 
+                            placeholder="Enter your feedback here..." 
+                            required></textarea>
+                        <div class="invalid-feedback">
+                            Feedback is required to proceed.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary me-2">Submit Feedback</button>
+                    <button type="button" class="btn btn-secondary" @click="cancelFeedback">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue.js Application Script -->
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                isAuthenticated: false, // Authentication state
+                loginUsername: '',
+                loginPassword: '',
+                loginSubmitted: false,
+                loginValid: {
+                    username: true,
+                    password: true
+                },
+                loginError: false,
+                // Initial list of endorsements with mock data
+                endorsements: [
+                    { id: 1, studentName: 'Andy ZHENG', company: 'HKBU', status: 'Pending' },
+                    { id: 2, studentName: 'Jane Smith', company: 'Innovate Ltd', status: 'Pending' },
+                    { id: 3, studentName: 'Alice Johnson', company: 'Future Solutions', status: 'Pending' },
+                    { id: 4, studentName: 'Mark Brown', company: 'Alpha Inc', status: 'Pending' },
+                    { id: 5, studentName: 'Emily Davis', company: 'Beta LLC', status: 'Pending' },
+                    { id: 6, studentName: 'Michael Wilson', company: 'Gamma Co', status: 'Pending' },
+                    { id: 7, studentName: 'Sarah Lee', company: 'Delta Services', status: 'Pending' },
+                    { id: 8, studentName: 'David Martinez', company: 'Epsilon Enterprises', status: 'Pending' },
+                    { id: 9, studentName: 'Laura Thompson', company: 'Zeta Solutions', status: 'Pending' },
+                    { id: 10, studentName: 'James Anderson', company: 'Eta Technologies', status: 'Pending' },
+                    { id: 11, studentName: 'John Doe', company: 'Tech Corp', status: 'Pending' },
+                    { id: 12, studentName: 'Emily Clark', company: 'Omega LLC', status: 'Pending' },
+                    { id: 13, studentName: 'Robert King', company: 'Lambda Inc', status: 'Pending' },
+                    { id: 14, studentName: 'Linda Scott', company: 'Sigma Co', status: 'Pending' },
+                    { id: 15, studentName: 'Kevin Brown', company: 'Theta Services', status: 'Pending' }
+                ],
+                selectedEndorsement: null, // The endorsement currently being acted upon
+                feedback: '', // Feedback input by the user
+                actionType: '', // Type of action: 'Reject' or 'Resubmit'
+                feedbackSubmitted: false // Flag to indicate if feedback has been attempted to be submitted
+            },
+            computed: {
+                // Compute if the feedback is valid (non-empty after trimming)
+                feedbackValid() {
+                    return this.feedback.trim() !== '';
+                }
+            },
+            methods: {
+                /**
+                 * Handle user login.
+                 */
+                login() {
+                    this.loginSubmitted = true;
+                    this.loginValid.username = this.loginUsername.trim() !== '';
+                    this.loginValid.password = this.loginPassword.trim() !== '';
+
+                    if (this.loginValid.username && this.loginValid.password) {
+                        if (this.loginUsername === 'admin' && this.loginPassword === '12345') {
+                            this.isAuthenticated = true;
+                            this.loginError = false;
+                            // Reset login form
+                            this.loginUsername = '';
+                            this.loginPassword = '';
+                            this.loginSubmitted = false;
+                        } else {
+                            this.loginError = true;
+                        }
+                    }
+                },
+                /**
+                 * Handle user logout.
+                 */
+                logout() {
+                    this.isAuthenticated = false;
+                },
+                /**
+                 * Approve an endorsement.
+                 * @param {Object} endorsement - The endorsement to approve.
+                 */
+                approve(endorsement) {
+                    // Confirm approval action
+                    if (confirm(`Are you sure you want to approve the endorsement for ${endorsement.studentName}?`)) {
+                        // Update the status to 'Approved'
+                        endorsement.status = 'Approved';
+                        // Mock API call placeholder for approving the endorsement
+                        // Example: axios.post('/api/endorsements/approve', { id: endorsement.id })
+                        console.log(`Approved endorsement for ${endorsement.studentName}`);
+                        // Optionally, remove the endorsement from the list if no longer needed
+                        // this.endorsements = this.endorsements.filter(e => e.id !== endorsement.id);
+                    }
+                },
+                /**
+                 * Initiate rejection of an endorsement.
+                 * @param {Object} endorsement - The endorsement to reject.
+                 */
+                reject(endorsement) {
+                    // Set the selected endorsement and action type
+                    this.selectedEndorsement = endorsement;
+                    this.actionType = 'Reject';
+                    this.feedback = ''; // Reset feedback
+                    this.feedbackSubmitted = false; // Reset validation flag
+                },
+                /**
+                 * Initiate request for resubmission of an endorsement.
+                 * @param {Object} endorsement - The endorsement to request resubmission.
+                 */
+                requestResubmission(endorsement) {
+                    // Set the selected endorsement and action type
+                    this.selectedEndorsement = endorsement;
+                    this.actionType = 'Resubmit';
+                    this.feedback = ''; // Reset feedback
+                    this.feedbackSubmitted = false; // Reset validation flag
+                },
+                /**
+                 * Submit feedback for rejection or resubmission.
+                 */
+                submitFeedback() {
+                    this.feedbackSubmitted = true; // Trigger validation
+
+                    // Check if feedback is valid
+                    if (this.feedbackValid) {
+                        // Depending on the action type, update the endorsement status
+                        if (this.actionType === 'Reject') {
+                            this.selectedEndorsement.status = 'Rejected';
+                        } else if (this.actionType === 'Resubmit') {
+                            this.selectedEndorsement.status = 'Resubmission Requested';
+                        }
+
+                        // Mock API call placeholder for submitting feedback
+                        // Example: axios.post('/api/endorsements/feedback', { id: this.selectedEndorsement.id, feedback: this.feedback, action: this.actionType })
+                        console.log(`Feedback submitted for ${this.selectedEndorsement.studentName}: ${this.feedback}`);
+                        
+                        // Reset the feedback form
+                        this.selectedEndorsement = null;
+                        this.feedback = '';
+                        this.actionType = '';
+                        this.feedbackSubmitted = false;
+                    } else {
+                        // If feedback is invalid, scroll to the feedback section for user to correct
+                        const feedbackSection = document.getElementById('feedback');
+                        if (feedbackSection) {
+                            feedbackSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    }
+                },
+                /**
+                 * Cancel the feedback process.
+                 */
+                cancelFeedback() {
+                    // Reset the feedback form without making any changes
+                    this.selectedEndorsement = null;
+                    this.feedback = '';
+                    this.actionType = '';
+                    this.feedbackSubmitted = false;
+                },
+                /**
+                 * Determine the CSS class based on endorsement status.
+                 * @param {String} status - The current status of the endorsement.
+                 * @returns {String} - The corresponding Bootstrap badge class.
+                 */
+                statusClass(status) {
+                    switch(status) {
+                        case 'Pending':
+                            return 'badge bg-secondary';
+                        case 'Approved':
+                            return 'badge bg-success';
+                        case 'Rejected':
+                            return 'badge bg-danger';
+                        case 'Resubmission Requested':
+                            return 'badge bg-warning text-dark';
+                        default:
+                            return 'badge bg-light text-dark';
+                    }
+                }
+            }
+        });
+    </script>
+
+    <!-- Bootstrap 5 JS Bundle CDN (Includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
