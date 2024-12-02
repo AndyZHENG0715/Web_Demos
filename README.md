@@ -5,8 +5,8 @@ This repository contains a collection of simple demos showcasing various concept
 ## Table of Contents
 
 - Demos
-  - 1. IMS Endorsement Review Demo
-  - 2. Other Demos
+  1. IMS Endorsement Review Demo
+  2. Other Demos
 - Getting Started
 - Contributing
 - License
