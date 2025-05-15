@@ -262,142 +262,218 @@
   </div>
 </div>
 
+<!-- Replace existing script tag content with this -->
 <script>
-  // Character data for display
-  const characterData = {
-    '三': { meaning: 'three', pinyin: 'sān' },
-    '永': { meaning: 'forever, perpetual', pinyin: 'yǒng' },
-    '我': { meaning: 'I, me, myself', pinyin: 'wǒ' },
-    '好': { meaning: 'good, well', pinyin: 'hǎo' },
-    '学': { meaning: 'study, learn', pinyin: 'xué' }
-  };
+/**
+ * ChineseCharacterApp - Main application class for Chinese character learning
+ */
+class ChineseCharacterApp {
+  /**
+   * Constructor - Initialize the application
+   */
+  constructor() {
+    // Configuration
+    this.config = {
+      canvas: {
+        main: { width: 300, height: 300, padding: 30 },
+        small: { width: 200, height: 200, padding: 20 }
+      },
+      animation: {
+        defaultDelay: 500,
+        stepClickDelay: 200
+      },
+      strokeStyle: {
+        default: {
+          color: '#000000',
+          width: 8,
+          linecap: 'round',
+          linejoin: 'round'
+        },
+        highlighted: {
+          color: '#ff0000',
+          width: 8,
+          linecap: 'round',
+          linejoin: 'round'
+        }
+      }
+    };
 
-  // ─── Settings ────────────────────────────────────────────────────
-  let currentChar = '三';            // Default character
-  const mainW = 300, mainH = 300, mainP = 30; // Main canvas size & padding
-  const smallW = 200, smallH = 200, smallP = 20; // Small canvas size & padding
-  let revealDelay = 500;             // ms between each stroke reveal
-  let animating = false;
+    // Application state
+    this.state = {
+      currentChar: '三',
+      animating: false,
+      revealDelay: 500,
+      highlightedStrokes: new Set(),
+      characterData: null
+    };
 
-  // SVG namespace constant
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  // Elements
-  const charLabel = document.getElementById('char-label');
-  const charSelect = document.getElementById('char-select');
-  const strokeCount = document.getElementById('stroke-count');
-  const characterMeaning = document.getElementById('character-meaning');
-  const speedSlider = document.getElementById('speed-slider');
-  const animateBtn = document.getElementById('animate-btn');
-  const resetBtn = document.getElementById('reset-btn');
-
-  // HSL color generator - more vibrant colors
-  function genColors(n) {
-    return Array.from({length: n}, (_, i) => {
-      // Adjust hue distribution and saturation/lightness for better contrast
-      return `hsl(${(i * 360 / n) % 360}, 85%, 55%)`;
-    });
+    // SVG namespace constant
+    this.SVG_NS = 'http://www.w3.org/2000/svg';
+    
+    // Cached DOM elements
+    this.elements = {};
+    
+    // Character data dictionary
+    this.characterDictionary = {
+      '三': { meaning: 'three', pinyin: 'sān' },
+      '永': { meaning: 'forever, perpetual', pinyin: 'yǒng' },
+      '我': { meaning: 'I, me, myself', pinyin: 'wǒ' },
+      '好': { meaning: 'good, well', pinyin: 'hǎo' },
+      '学': { meaning: 'study, learn', pinyin: 'xué' }
+    };
   }
 
-  // Initialize
-  function initializeUI() {
-    charLabel.textContent = currentChar;
-    updateCharacterInfo();
-    
-    // Set up event listeners for character input
-    const charInput = document.getElementById('char-input');
-    const loadCharBtn = document.getElementById('load-char-btn');
-    
-    loadCharBtn.addEventListener('click', function() {
-      const inputChar = charInput.value.trim();
+  /**
+   * Initialize the application
+   */
+  init() {
+    this.cacheElements();
+    this.setupEventListeners();
+    this.loadCharacter(this.state.currentChar);
+  }
+
+  /**
+   * Cache DOM elements for better performance
+   */
+  cacheElements() {
+    this.elements = {
+      charLabel: document.getElementById('char-label'),
+      strokeCount: document.getElementById('stroke-count'),
+      characterMeaning: document.getElementById('character-meaning'),
+      speedSlider: document.getElementById('speed-slider'),
+      animateBtn: document.getElementById('animate-btn'),
+      resetBtn: document.getElementById('reset-btn'),
+      charInput: document.getElementById('char-input'),
+      loadCharBtn: document.getElementById('load-char-btn'),
+      mainSvg: document.getElementById('main-svg'),
+      breakdown: document.getElementById('breakdown')
+    };
+  }
+
+  /**
+   * Set up event listeners
+   */
+  setupEventListeners() {
+    // Character input handlers
+    this.elements.loadCharBtn.addEventListener('click', () => {
+      const inputChar = this.elements.charInput.value.trim();
       if (inputChar && inputChar.length === 1) {
-        currentChar = inputChar;
-        renderCharacter();
+        this.loadCharacter(inputChar);
       }
     });
     
-    charInput.addEventListener('keypress', function(e) {
+    this.elements.charInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
-        const inputChar = this.value.trim();
+        const inputChar = this.elements.charInput.value.trim();
         if (inputChar && inputChar.length === 1) {
-          currentChar = inputChar;
-          renderCharacter();
+          this.loadCharacter(inputChar);
         }
       }
     });
     
-    // Suggested characters
-    const suggestions = document.querySelectorAll('.char-suggestion');
-    suggestions.forEach(btn => {
-      btn.addEventListener('click', function() {
-        currentChar = this.textContent;
-        charInput.value = currentChar;
-        renderCharacter();
+    // Character suggestion buttons
+    document.querySelectorAll('.char-suggestion').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const char = btn.textContent;
+        this.elements.charInput.value = char;
+        this.loadCharacter(char);
       });
     });
     
-    // Speed slider
-    speedSlider.addEventListener('input', function() {
-      revealDelay = 1100 - this.value;
+    // Animation control
+    this.elements.speedSlider.addEventListener('input', () => {
+      this.state.revealDelay = 1100 - this.elements.speedSlider.value;
     });
     
-    // Animation buttons
-    animateBtn.addEventListener('click', animateStrokes);
-    resetBtn.addEventListener('click', resetAnimation);
+    this.elements.animateBtn.addEventListener('click', () => this.animateStrokes());
+    this.elements.resetBtn.addEventListener('click', () => this.resetAnimation());
   }
 
-  function updateCharacterInfo() {
-    const info = characterData[currentChar] || { 
+  /**
+   * Load a character and render it
+   * @param {string} char - The character to load
+   */
+  loadCharacter(char) {
+    this.state.currentChar = char;
+    this.resetAnimation();
+    this.updateCharacterInfo();
+    
+    HanziWriter.loadCharacterData(char)
+      .then(data => {
+        this.state.characterData = data;
+        this.state.highlightedStrokes.clear();
+        
+        this.elements.strokeCount.textContent = `${data.strokes.length} strokes`;
+        this.renderMainSVG();
+        this.renderBreakdown();
+      })
+      .catch(err => {
+        console.error('Error loading character data:', err);
+        this.elements.characterMeaning.textContent = 'Error loading character data';
+      });
+  }
+
+  /**
+   * Update character information display
+   */
+  updateCharacterInfo() {
+    this.elements.charLabel.textContent = this.state.currentChar;
+    
+    const info = this.characterDictionary[this.state.currentChar] || { 
       meaning: 'Character details unavailable', 
       pinyin: '' 
     };
     
-    // Update meaning display
     if (info.pinyin) {
-      characterMeaning.textContent = `${info.pinyin} - ${info.meaning}`;
+      this.elements.characterMeaning.textContent = `${info.pinyin} - ${info.meaning}`;
     } else {
-      characterMeaning.textContent = info.meaning;
+      this.elements.characterMeaning.textContent = info.meaning;
     }
     
-    // Update character input field if it exists
-    const charInput = document.getElementById('char-input');
-    if (charInput) {
-      charInput.value = currentChar;
+    if (this.elements.charInput) {
+      this.elements.charInput.value = this.state.currentChar;
     }
   }
 
-  // ─── Rendering Functions ─────────────────────────────────────────
-  function renderCharacter() {
-    // Reset UI state
-    resetAnimation();
-    charLabel.textContent = currentChar;
-    updateCharacterInfo();
+  /**
+   * Create an SVG path element with specified attributes
+   * @param {string} d - The path data
+   * @param {object} style - The style object
+   * @param {number} index - The stroke index
+   * @returns {SVGPathElement} - The created path element
+   */
+  createStrokePath(d, style, index) {
+    const path = document.createElementNS(this.SVG_NS, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', style.color);
+    path.setAttribute('stroke-width', style.width);
+    path.setAttribute('stroke-linecap', style.linecap);
+    path.setAttribute('stroke-linejoin', style.linejoin);
+    path.setAttribute('fill', 'none');
+    path.dataset.strokeIndex = index;
     
-    // Load character data
-    HanziWriter.loadCharacterData(currentChar).then(data => {
-      const colors = genColors(data.strokes.length);
-      strokeCount.textContent = `${data.strokes.length} strokes`;
-      
-      // --- Top: Main SVG ---
-      renderMainSVG(data, colors);
-      
-      // --- Bottom: Breakdown frames ---
-      renderBreakdown(data, colors);
-    });
+    return path;
   }
 
-  function renderMainSVG(data, colors) {
-    const mainSvg = document.getElementById('main-svg');
+  /**
+   * Render the main SVG character
+   */
+  renderMainSVG() {
+    const data = this.state.characterData;
+    if (!data) return;
+    
+    const mainSvg = this.elements.mainSvg;
     mainSvg.innerHTML = '';
     
     // Create group with proper transform
-    const gMain = document.createElementNS(SVG_NS, 'g');
-    gMain.setAttribute('transform', HanziWriter.getScalingTransform(mainW, mainH, mainP).transform);
+    const gMain = document.createElementNS(this.SVG_NS, 'g');
+    const { width, height, padding } = this.config.canvas.main;
+    gMain.setAttribute('transform', HanziWriter.getScalingTransform(width, height, padding).transform);
     mainSvg.appendChild(gMain);
 
     // Add outline path for reference (gray, dashed)
     if (data.medians) {
-      const outlinePath = document.createElementNS(SVG_NS, 'path');
+      const outlinePath = document.createElementNS(this.SVG_NS, 'path');
       outlinePath.setAttribute('d', data.medians.map(m => m.join(' ')).join(' '));
       outlinePath.setAttribute('stroke', '#cccccc');
       outlinePath.setAttribute('stroke-width', 2);
@@ -408,33 +484,52 @@
 
     // Create path elements for each stroke
     data.strokes.forEach((d, i) => {
-      const p = document.createElementNS(SVG_NS, 'path');
-      p.setAttribute('d', d);
-      p.setAttribute('stroke', colors[i]);
-      p.setAttribute('stroke-width', 8);
-      p.setAttribute('stroke-linecap', 'round');
-      p.setAttribute('stroke-linejoin', 'round');
-      p.setAttribute('fill', 'none');
+      const style = this.state.highlightedStrokes.has(i)
+        ? this.config.strokeStyle.highlighted 
+        : this.config.strokeStyle.default;
       
-      // Get path length for proper dasharray
+      const p = this.createStrokePath(d, style, i);
+      p.classList.add('stroke-path');
+      
+      // Make strokes clickable
+      p.addEventListener('click', () => this.toggleStrokeHighlight(i));
+      
+      // Set up for animation
       mainSvg.appendChild(p); // Temporarily add to calculate length
       const pathLength = p.getTotalLength() || 2000;
-      mainSvg.removeChild(p); // Remove after calculatio'
+      mainSvg.removeChild(p);
       
-      // Set dash properties based on actual length
       p.setAttribute('stroke-dasharray', pathLength);
       p.setAttribute('stroke-dashoffset', pathLength);
       
-      p.classList.add('stroke-path');
-      p.dataset.strokeIndex = i;
       gMain.appendChild(p);
     });
   }
 
-  function renderBreakdown(data, colors) {
-    const breakdown = document.getElementById('breakdown');
-    breakdown.innerHTML = '';  // clear old frames
+  /**
+   * Toggle highlight state of a stroke
+   * @param {number} index - The stroke index
+   */
+  toggleStrokeHighlight(index) {
+    if (this.state.highlightedStrokes.has(index)) {
+      this.state.highlightedStrokes.delete(index);
+    } else {
+      this.state.highlightedStrokes.add(index);
+    }
+    
+    this.renderMainSVG(); // Re-render with updated highlight state
+  }
 
+  /**
+   * Render the stroke breakdown section
+   */
+  renderBreakdown() {
+    const data = this.state.characterData;
+    if (!data) return;
+    
+    const breakdown = this.elements.breakdown;
+    breakdown.innerHTML = '';
+    
     data.strokes.forEach((_, stepIdx) => {
       // Create container for step
       const stepContainer = document.createElement('div');
@@ -446,76 +541,79 @@
       stepNumber.textContent = stepIdx + 1;
       stepContainer.appendChild(stepNumber);
       
-      // 1) create an <svg> element
-      const svg = document.createElementNS(SVG_NS, 'svg');
+      // Create SVG element
+      const svg = document.createElementNS(this.SVG_NS, 'svg');
       svg.setAttribute('class', 'svg-canvas');
-      svg.setAttribute('width', smallW);
-      svg.setAttribute('height', smallH);
+      
+      const { width, height, padding } = this.config.canvas.small;
+      svg.setAttribute('width', width);
+      svg.setAttribute('height', height);
 
-      // 2) create a <g> with the proper transform
-      const g = document.createElementNS(SVG_NS, 'g');
-      g.setAttribute('transform', HanziWriter.getScalingTransform(smallW, smallH, smallP).transform);
+      // Create group with transform
+      const g = document.createElementNS(this.SVG_NS, 'g');
+      g.setAttribute('transform', HanziWriter.getScalingTransform(width, height, padding).transform);
       svg.appendChild(g);
 
-      // 3) draw strokes 0…stepIdx
+      // Draw strokes up to current step
       for (let j = 0; j <= stepIdx; j++) {
-        const p = document.createElementNS(SVG_NS, 'path');
-        p.setAttribute('d', data.strokes[j]);
-        p.setAttribute('stroke', colors[j]);
-        p.setAttribute('stroke-width', 6);
-        p.setAttribute('stroke-linecap', 'round');
-        p.setAttribute('stroke-linejoin', 'round');
-        p.setAttribute('fill', 'none');
+        const style = this.state.highlightedStrokes.has(j)
+          ? this.config.strokeStyle.highlighted
+          : this.config.strokeStyle.default;
+        
+        const p = this.createStrokePath(data.strokes[j], style, j);
         g.appendChild(p);
       }
 
-      // 4) append this SVG to the container
       stepContainer.appendChild(svg);
       breakdown.appendChild(stepContainer);
       
       // Add click event to animate up to this step
       stepContainer.addEventListener('click', () => {
-        resetAnimation();
-        animateToStep(stepIdx);
+        this.resetAnimation();
+        this.animateToStep(stepIdx);
       });
     });
   }
 
-  // ─── Animation Functions ─────────────────────────────────────────
-  function animateStrokes() {
-    if (animating) return;
+  /**
+   * Animate all strokes in sequence
+   */
+  animateStrokes() {
+    if (this.state.animating) return;
     
-    animating = true;
-    animateBtn.disabled = true;
+    this.state.animating = true;
+    this.elements.animateBtn.disabled = true;
     
-    const mainSvg = document.getElementById('main-svg');
-    const paths = Array.from(mainSvg.querySelectorAll('.stroke-path'));
+    const paths = Array.from(this.elements.mainSvg.querySelectorAll('.stroke-path'));
     
-    resetAnimation();
+    this.resetAnimation();
     
     // Force browser to acknowledge the reset
-    void mainSvg.offsetWidth;
+    void this.elements.mainSvg.offsetWidth;
     
     paths.forEach((p, i) => {
       setTimeout(() => {
-        p.classList.add('animated'); // Just for opacity
-        p.classList.add('active');   // This triggers the transition with the specific dashoffset
-      }, i * revealDelay);
+        p.classList.add('animated');
+        p.classList.add('active');
+      }, i * this.state.revealDelay);
     });
     
     setTimeout(() => {
-      animateBtn.disabled = false;
-      animating = false;
-    }, paths.length * revealDelay + 1500);
+      this.elements.animateBtn.disabled = false;
+      this.state.animating = false;
+    }, paths.length * this.state.revealDelay + 1500);
   }
 
-  function animateToStep(targetStep) {
-    if (animating) return;
+  /**
+   * Animate up to a specific step
+   * @param {number} targetStep - The step to animate to
+   */
+  animateToStep(targetStep) {
+    if (this.state.animating) return;
     
-    animating = true;
+    this.state.animating = true;
     
-    const mainSvg = document.getElementById('main-svg');
-    const paths = Array.from(mainSvg.querySelectorAll('.stroke-path'));
+    const paths = Array.from(this.elements.mainSvg.querySelectorAll('.stroke-path'));
     
     for (let i = 0; i <= targetStep; i++) {
       setTimeout(() => {
@@ -523,17 +621,19 @@
           paths[i].classList.add('active');
           paths[i].classList.add('animated');
         }
-      }, i * 200); // Faster animation for step-clicking
+      }, i * this.config.animation.stepClickDelay);
     }
     
     setTimeout(() => {
-      animating = false;
-    }, targetStep * 200 + 1000);
+      this.state.animating = false;
+    }, targetStep * this.config.animation.stepClickDelay + 1000);
   }
 
-  function resetAnimation() {
-    const mainSvg = document.getElementById('main-svg');
-    const paths = mainSvg.querySelectorAll('.stroke-path');
+  /**
+   * Reset animation state
+   */
+  resetAnimation() {
+    const paths = this.elements.mainSvg.querySelectorAll('.stroke-path');
     
     paths.forEach(p => {
       p.classList.remove('active');
@@ -544,13 +644,16 @@
       p.style.strokeDashoffset = pathLength;
     });
     
-    animateBtn.disabled = false;
-    animating = false;
+    this.elements.animateBtn.disabled = false;
+    this.state.animating = false;
   }
+}
 
-  // Initialize the UI
-  initializeUI();
-  renderCharacter();
+// Create and initialize the app when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+  const app = new ChineseCharacterApp();
+  app.init();
+});
 </script>
 
 <!-- Bootstrap JS -->
