@@ -76,9 +76,8 @@
     }
     
     .stroke-path {
-      opacity: 1; /* Changed from 0 to make strokes visible by default */
-      cursor: pointer;
-      transition: stroke 0.2s ease-in-out;
+      opacity: 0;
+      transition: opacity 0.3s ease-in, stroke-dashoffset 1.5s ease-in-out;
     }
     
     .stroke-path.animated {
@@ -97,19 +96,6 @@
       to {
         stroke-dashoffset: 0;
       }
-    }
-    
-    @keyframes drawStrokeDirectional {
-      from {
-        stroke-dashoffset: var(--path-length);
-      }
-      to {
-        stroke-dashoffset: 0;
-      }
-    }
-    
-    .stroke-animation {
-      animation: drawStrokeDirectional 1.5s forwards;
     }
     
     .controls {
@@ -469,53 +455,6 @@ class ChineseCharacterApp {
   }
 
   /**
-   * Toggle highlight state of a stroke
-   * @param {number} index - The stroke index
-   */
-  toggleStrokeHighlight(index) {
-    if (this.state.highlightedStrokes.has(index)) {
-      this.state.highlightedStrokes.delete(index);
-    } else {
-      this.state.highlightedStrokes.add(index);
-    }
-    
-    // Update only the affected stroke for better performance
-    const stroke = this.elements.mainSvg.querySelector(`[data-stroke-index="${index}"]`);
-    if (stroke) {
-      const newColor = this.state.highlightedStrokes.has(index) 
-        ? this.config.strokeStyle.highlighted.color 
-        : this.config.strokeStyle.default.color;
-      stroke.setAttribute('stroke', newColor);
-    }
-    
-    // Also update the breakdown display
-    this.updateBreakdownStrokes();
-  }
-
-  /**
-   * Update highlighted strokes in the breakdown section
-   */
-  updateBreakdownStrokes() {
-    const breakdown = this.elements.breakdown;
-    const steps = breakdown.querySelectorAll('.step-frame');
-    
-    steps.forEach((step, stepIdx) => {
-      const svg = step.querySelector('svg');
-      if (!svg) return;
-      
-      for (let j = 0; j <= stepIdx; j++) {
-        const strokePath = svg.querySelector(`[data-stroke-index="${j}"]`);
-        if (strokePath) {
-          const newColor = this.state.highlightedStrokes.has(j) 
-            ? this.config.strokeStyle.highlighted.color 
-            : this.config.strokeStyle.default.color;
-          strokePath.setAttribute('stroke', newColor);
-        }
-      }
-    });
-  }
-
-  /**
    * Render the main SVG character
    */
   renderMainSVG() {
@@ -531,6 +470,17 @@ class ChineseCharacterApp {
     gMain.setAttribute('transform', HanziWriter.getScalingTransform(width, height, padding).transform);
     mainSvg.appendChild(gMain);
 
+    // Add outline path for reference (gray, dashed)
+    if (data.medians) {
+      const outlinePath = document.createElementNS(this.SVG_NS, 'path');
+      outlinePath.setAttribute('d', data.medians.map(m => m.join(' ')).join(' '));
+      outlinePath.setAttribute('stroke', '#cccccc');
+      outlinePath.setAttribute('stroke-width', 2);
+      outlinePath.setAttribute('stroke-dasharray', '5,5');
+      outlinePath.setAttribute('fill', 'none');
+      gMain.appendChild(outlinePath);
+    }
+
     // Create path elements for each stroke
     data.strokes.forEach((d, i) => {
       const style = this.state.highlightedStrokes.has(i)
@@ -541,23 +491,32 @@ class ChineseCharacterApp {
       p.classList.add('stroke-path');
       
       // Make strokes clickable
-      p.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent event bubbling
-        this.toggleStrokeHighlight(i);
-      });
+      p.addEventListener('click', () => this.toggleStrokeHighlight(i));
       
-      // Set up for directional animation
+      // Set up for animation
       mainSvg.appendChild(p); // Temporarily add to calculate length
       const pathLength = p.getTotalLength() || 2000;
-      p.style.setProperty('--path-length', pathLength);
       mainSvg.removeChild(p);
       
-      // Initialize with 0 offset (fully visible)
       p.setAttribute('stroke-dasharray', pathLength);
-      p.setAttribute('stroke-dashoffset', '0');
+      p.setAttribute('stroke-dashoffset', pathLength);
       
       gMain.appendChild(p);
     });
+  }
+
+  /**
+   * Toggle highlight state of a stroke
+   * @param {number} index - The stroke index
+   */
+  toggleStrokeHighlight(index) {
+    if (this.state.highlightedStrokes.has(index)) {
+      this.state.highlightedStrokes.delete(index);
+    } else {
+      this.state.highlightedStrokes.add(index);
+    }
+    
+    this.renderMainSVG(); // Re-render with updated highlight state
   }
 
   /**
@@ -601,7 +560,6 @@ class ChineseCharacterApp {
           : this.config.strokeStyle.default;
         
         const p = this.createStrokePath(data.strokes[j], style, j);
-        p.dataset.strokeIndex = j; // Add this for easier updating later
         g.appendChild(p);
       }
 
@@ -627,23 +585,15 @@ class ChineseCharacterApp {
     
     const paths = Array.from(this.elements.mainSvg.querySelectorAll('.stroke-path'));
     
-    // First, make all strokes invisible
-    paths.forEach(p => {
-      const pathLength = p.style.getPropertyValue('--path-length') || p.getTotalLength();
-      p.setAttribute('stroke-dashoffset', pathLength);
-    });
+    this.resetAnimation();
     
-    // Then animate them one by one
+    // Force browser to acknowledge the reset
+    void this.elements.mainSvg.offsetWidth;
+    
     paths.forEach((p, i) => {
       setTimeout(() => {
-        // Remove any existing animation
-        p.style.animation = 'none';
-        
-        // Force reflow to make sure the animation restarts
-        void p.offsetWidth;
-        
-        // Add directional animation
-        p.style.animation = `drawStrokeDirectional ${this.state.revealDelay / 500}s forwards`;
+        p.classList.add('animated');
+        p.classList.add('active');
       }, i * this.state.revealDelay);
     });
     
@@ -664,31 +614,18 @@ class ChineseCharacterApp {
     
     const paths = Array.from(this.elements.mainSvg.querySelectorAll('.stroke-path'));
     
-    // First, make all strokes invisible
-    paths.forEach(p => {
-      const pathLength = p.style.getPropertyValue('--path-length') || p.getTotalLength();
-      p.setAttribute('stroke-dashoffset', pathLength);
-    });
-    
-    // Then animate them up to the target step
     for (let i = 0; i <= targetStep; i++) {
       setTimeout(() => {
         if (paths[i]) {
-          // Remove any existing animation
-          paths[i].style.animation = 'none';
-          
-          // Force reflow
-          void paths[i].offsetWidth;
-          
-          // Add directional animation
-          paths[i].style.animation = `drawStrokeDirectional ${this.config.animation.stepClickDelay / 200}s forwards`;
+          paths[i].classList.add('active');
+          paths[i].classList.add('animated');
         }
       }, i * this.config.animation.stepClickDelay);
     }
     
     setTimeout(() => {
       this.state.animating = false;
-    }, (targetStep + 1) * this.config.animation.stepClickDelay + 500);
+    }, targetStep * this.config.animation.stepClickDelay + 1000);
   }
 
   /**
@@ -698,11 +635,12 @@ class ChineseCharacterApp {
     const paths = this.elements.mainSvg.querySelectorAll('.stroke-path');
     
     paths.forEach(p => {
-      // Reset animation
-      p.style.animation = 'none';
+      p.classList.remove('active');
+      p.classList.remove('animated');
       
-      // Make strokes fully visible
-      p.setAttribute('stroke-dashoffset', '0');
+      // Reset dashoffset to the original path length
+      const pathLength = p.getAttribute('stroke-dasharray');
+      p.style.strokeDashoffset = pathLength;
     });
     
     this.elements.animateBtn.disabled = false;
