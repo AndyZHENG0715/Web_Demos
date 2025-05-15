@@ -38,18 +38,6 @@ An interactive web application for learning Chinese characters stroke by stroke.
 - **Character Selection:** Choose from suggested characters or input custom ones.
 - **Animation Speed Control:** Adjust the speed of the stroke animation.
 
-**Status (May 15, 2025):**
-- Implemented directional stroke animation
-- Added stroke visibility control
-- Added stroke highlighting functionality
-- **Known Issue:** Reset button functionality is currently not working properly
-
-**Planned Updates:**
-- Fix reset button functionality
-- Implement filled stroke rendering (matching stroke and fill colors)
-- Optimize animation performance
-- Add more character information and pronunciation guides
-
 ### 3. Other Demos
 
 *Descriptions of additional demos can be added here.*
