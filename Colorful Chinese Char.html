@@ -77,16 +77,16 @@
     
     .stroke-path {
       opacity: 0;
-      transition: opacity 0.3s ease-in;
+      transition: opacity 0.3s ease-in, stroke-dashoffset 1.5s ease-in-out;
     }
     
     .stroke-path.animated {
       opacity: 1;
-      animation: drawStroke 1.5s forwards;
     }
     
     .stroke-path.active {
       opacity: 1;
+      stroke-dashoffset: 0 !important;
     }
     
     @keyframes drawStroke {
@@ -414,7 +414,7 @@
       p.setAttribute('stroke-width', 8);
       p.setAttribute('stroke-linecap', 'round');
       p.setAttribute('stroke-linejoin', 'round');
-      p.setAttribute('fill', colors[i]);
+      p.setAttribute('fill', 'none');
       
       // Get path length for proper dasharray
       mainSvg.appendChild(p); // Temporarily add to calculate length
@@ -465,7 +465,7 @@
         p.setAttribute('stroke-width', 6);
         p.setAttribute('stroke-linecap', 'round');
         p.setAttribute('stroke-linejoin', 'round');
-        p.setAttribute('fill', colors[j]);
+        p.setAttribute('fill', 'none');
         g.appendChild(p);
       }
 
@@ -493,19 +493,20 @@
     
     resetAnimation();
     
+    // Force browser to acknowledge the reset
+    void mainSvg.offsetWidth;
+    
     paths.forEach((p, i) => {
       setTimeout(() => {
-        p.classList.add('active');
-        // Use animation for stroke drawing effect
-        p.classList.add('animated');
+        p.classList.add('animated'); // Just for opacity
+        p.classList.add('active');   // This triggers the transition with the specific dashoffset
       }, i * revealDelay);
     });
     
-    // Enable button after animation completes
     setTimeout(() => {
       animateBtn.disabled = false;
       animating = false;
-    }, paths.length * revealDelay + 1500); // Add extra time for final animation
+    }, paths.length * revealDelay + 1500);
   }
 
   function animateToStep(targetStep) {
@@ -538,8 +539,9 @@
       p.classList.remove('active');
       p.classList.remove('animated');
       
-      // Reset animation (technique to restart CSS animations)
-      void p.offsetWidth; // Trigger reflow
+      // Reset dashoffset to the original path length
+      const pathLength = p.getAttribute('stroke-dasharray');
+      p.style.strokeDashoffset = pathLength;
     });
     
     animateBtn.disabled = false;
