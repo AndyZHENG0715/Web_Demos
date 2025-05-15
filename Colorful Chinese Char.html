@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Learn Chinese Characters - Stroke by Stroke</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Hanzi Writer 3.5 -->
+  <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+  <style>
+    body {
+      font-family: 'Nunito', sans-serif;
+      background-color: #f8f9fa;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    
+    .app-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background-color: #fff;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      padding: 2rem;
+    }
+    
+    .app-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 1rem;
+    }
+    
+    .app-title {
+      color: #343a40;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    
+    .subtitle {
+      color: #6c757d;
+      font-weight: 600;
+    }
+    
+    .character-display {
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+    }
+    
+    .character-info {
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      border-left: 4px solid #007bff;
+    }
+    
+    .svg-canvas {
+      width: 200px;
+      height: 200px;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+      margin: 0.5rem;
+    }
+    
+    .main-canvas {
+      width: 300px;
+      height: 300px;
+    }
+    
+    .stroke-path {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+    
+    .stroke-path.animated {
+      opacity: 1;
+      animation: drawStroke 1.5s forwards;
+    }
+    
+    .stroke-path.active {
+      opacity: 1;
+    }
+    
+    @keyframes drawStroke {
+      from {
+        stroke-dashoffset: 2000;
+      }
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    
+    .controls {
+      margin: 1.5rem 0;
+    }
+    
+    .btn-custom {
+      border-radius: 50px;
+      padding: 0.5rem 1.5rem;
+      font-weight: 600;
+      margin: 0 0.25rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      transition: all 0.3s;
+    }
+    
+    .btn-custom:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .step-frame {
+      position: relative;
+      display: inline-block;
+      margin: 0.75rem;
+      transition: transform 0.3s;
+    }
+    
+    .step-frame:hover {
+      transform: scale(1.05);
+    }
+    
+    .step-number {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      width: 30px;
+      height: 30px;
+      background-color: #007bff;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    .character-selector {
+      max-width: 400px;
+      margin: 0 auto 1.5rem auto;
+    }
+    
+    .breakdown-title {
+      background-color: #e9ecef;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    
+    .animation-speed-control {
+      margin-bottom: 1rem;
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #212529;
+        color: #f8f9fa;
+      }
+      
+      .app-container {
+        background-color: #343a40;
+      }
+      
+      .app-title {
+        color: #f8f9fa;
+      }
+      
+      .subtitle {
+        color: #ced4da;
+      }
+      
+      .character-display {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+      }
+      
+      .character-info {
+        background-color: #495057;
+        color: #f8f9fa;
+      }
+      
+      .svg-canvas {
+        background-color: #495057;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container app-container">
+  <div class="app-header">
+    <h1 class="app-title">Chinese Character Learning</h1>
+    <p class="subtitle">Learn stroke by stroke with visual breakdown</p>
+  </div>
+  
+  <div class="row">
+    <div class="col-lg-5">
+      <!-- Character Info Panel -->
+      <div class="character-info">
+        <div class="d-flex justify-content-between align-items-center">
+          <h3>Character: <span id="char-label" class="display-4"></span></h3>
+          <span class="badge bg-primary rounded-pill" id="stroke-count"></span>
+        </div>
+        <p id="character-meaning" class="mb-0">Loading character information...</p>
+      </div>
+      
+      <!-- Main Animation -->
+      <div class="character-display text-center">
+        <svg id="main-svg" class="svg-canvas main-canvas"></svg>
+      </div>
+      
+      <!-- Controls -->
+      <div class="controls text-center">
+        <div class="character-selector">
+          <label for="char-input" class="form-label">Enter a character:</label>
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" id="char-input" maxlength="1" placeholder="输入汉字">
+            <button class="btn btn-primary" type="button" id="load-char-btn">Load</button>
+          </div>
+          <div class="suggested-chars mt-2">
+            <small class="text-muted">Suggestions:</small>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+              <button class="btn btn-sm btn-outline-secondary char-suggestion">三</button>
+              <button class="btn btn-sm btn-outline-secondary char-suggestion">永</button>
+              <button class="btn btn-sm btn-outline-secondary char-suggestion">我</button>
+              <button class="btn btn-sm btn-outline-secondary char-suggestion">好</button>
+              <button class="btn btn-sm btn-outline-secondary char-suggestion">学</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="animation-speed-control">
+          <label for="speed-slider" class="form-label">Animation Speed:</label>
+          <input type="range" class="form-range" id="speed-slider" min="100" max="1000" step="100" value="500">
+        </div>
+        
+        <button id="animate-btn" class="btn btn-primary btn-custom">
+          <i class="fas fa-play me-2"></i>Animate Strokes
+        </button>
+        <button id="reset-btn" class="btn btn-secondary btn-custom">
+          <i class="fas fa-redo me-2"></i>Reset
+        </button>
+      </div>
+    </div>
+    
+    <div class="col-lg-7">
+      <!-- Breakdown Section -->
+      <div class="breakdown-title">
+        <i class="fas fa-layer-group me-2"></i>Step-by-Step Breakdown
+      </div>
+      <div id="breakdown" class="d-flex justify-content-center flex-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Character data for display
+  const characterData = {
+    '三': { meaning: 'three', pinyin: 'sān' },
+    '永': { meaning: 'forever, perpetual', pinyin: 'yǒng' },
+    '我': { meaning: 'I, me, myself', pinyin: 'wǒ' },
+    '好': { meaning: 'good, well', pinyin: 'hǎo' },
+    '学': { meaning: 'study, learn', pinyin: 'xué' }
+  };
+
+  // ─── Settings ────────────────────────────────────────────────────
+  let currentChar = '三';            // Default character
+  const mainW = 300, mainH = 300, mainP = 30; // Main canvas size & padding
+  const smallW = 200, smallH = 200, smallP = 20; // Small canvas size & padding
+  let revealDelay = 500;             // ms between each stroke reveal
+  let animating = false;
+
+  // SVG namespace constant
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // Elements
+  const charLabel = document.getElementById('char-label');
+  const charSelect = document.getElementById('char-select');
+  const strokeCount = document.getElementById('stroke-count');
+  const characterMeaning = document.getElementById('character-meaning');
+  const speedSlider = document.getElementById('speed-slider');
+  const animateBtn = document.getElementById('animate-btn');
+  const resetBtn = document.getElementById('reset-btn');
+
+  // HSL color generator - more vibrant colors
+  function genColors(n) {
+    return Array.from({length: n}, (_, i) => {
+      // Adjust hue distribution and saturation/lightness for better contrast
+      return `hsl(${(i * 360 / n) % 360}, 85%, 55%)`;
+    });
+  }
+
+  // Initialize
+  function initializeUI() {
+    charLabel.textContent = currentChar;
+    updateCharacterInfo();
+    
+    // Set up event listeners for character input
+    const charInput = document.getElementById('char-input');
+    const loadCharBtn = document.getElementById('load-char-btn');
+    
+    loadCharBtn.addEventListener('click', function() {
+      const inputChar = charInput.value.trim();
+      if (inputChar && inputChar.length === 1) {
+        currentChar = inputChar;
+        renderCharacter();
+      }
+    });
+    
+    charInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const inputChar = this.value.trim();
+        if (inputChar && inputChar.length === 1) {
+          currentChar = inputChar;
+          renderCharacter();
+        }
+      }
+    });
+    
+    // Suggested characters
+    const suggestions = document.querySelectorAll('.char-suggestion');
+    suggestions.forEach(btn => {
+      btn.addEventListener('click', function() {
+        currentChar = this.textContent;
+        charInput.value = currentChar;
+        renderCharacter();
+      });
+    });
+    
+    // Speed slider
+    speedSlider.addEventListener('input', function() {
+      revealDelay = 1100 - this.value;
+    });
+    
+    // Animation buttons
+    animateBtn.addEventListener('click', animateStrokes);
+    resetBtn.addEventListener('click', resetAnimation);
+  }
+
+  function updateCharacterInfo() {
+    const info = characterData[currentChar] || { 
+      meaning: 'Character details unavailable', 
+      pinyin: '' 
+    };
+    
+    // Update meaning display
+    if (info.pinyin) {
+      characterMeaning.textContent = `${info.pinyin} - ${info.meaning}`;
+    } else {
+      characterMeaning.textContent = info.meaning;
+    }
+    
+    // Update character input field if it exists
+    const charInput = document.getElementById('char-input');
+    if (charInput) {
+      charInput.value = currentChar;
+    }
+  }
+
+  // ─── Rendering Functions ─────────────────────────────────────────
+  function renderCharacter() {
+    // Reset UI state
+    resetAnimation();
+    charLabel.textContent = currentChar;
+    updateCharacterInfo();
+    
+    // Load character data
+    HanziWriter.loadCharacterData(currentChar).then(data => {
+      const colors = genColors(data.strokes.length);
+      strokeCount.textContent = `${data.strokes.length} strokes`;
+      
+      // --- Top: Main SVG ---
+      renderMainSVG(data, colors);
+      
+      // --- Bottom: Breakdown frames ---
+      renderBreakdown(data, colors);
+    });
+  }
+
+  function renderMainSVG(data, colors) {
+    const mainSvg = document.getElementById('main-svg');
+    mainSvg.innerHTML = '';
+    
+    // Create group with proper transform
+    const gMain = document.createElementNS(SVG_NS, 'g');
+    gMain.setAttribute('transform', HanziWriter.getScalingTransform(mainW, mainH, mainP).transform);
+    mainSvg.appendChild(gMain);
+
+    // Add outline path for reference (gray, dashed)
+    if (data.medians) {
+      const outlinePath = document.createElementNS(SVG_NS, 'path');
+      outlinePath.setAttribute('d', data.medians.map(m => m.join(' ')).join(' '));
+      outlinePath.setAttribute('stroke', '#cccccc');
+      outlinePath.setAttribute('stroke-width', 2);
+      outlinePath.setAttribute('stroke-dasharray', '5,5');
+      outlinePath.setAttribute('fill', 'none');
+      gMain.appendChild(outlinePath);
+    }
+
+    // Create path elements for each stroke
+    data.strokes.forEach((d, i) => {
+      const p = document.createElementNS(SVG_NS, 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('stroke', colors[i]);
+      p.setAttribute('stroke-width', 8);
+      p.setAttribute('stroke-linecap', 'round');
+      p.setAttribute('stroke-linejoin', 'round');
+      p.setAttribute('fill', colors[i]);
+      
+      // Get path length for proper dasharray
+      mainSvg.appendChild(p); // Temporarily add to calculate length
+      const pathLength = p.getTotalLength() || 2000;
+      mainSvg.removeChild(p); // Remove after calculation
+      
+      // Set dash properties based on actual length
+      p.setAttribute('stroke-dasharray', pathLength);
+      p.setAttribute('stroke-dashoffset', pathLength);
+      
+      p.classList.add('stroke-path');
+      p.dataset.strokeIndex = i;
+      gMain.appendChild(p);
+    });
+  }
+
+  function renderBreakdown(data, colors) {
+    const breakdown = document.getElementById('breakdown');
+    breakdown.innerHTML = '';  // clear old frames
+
+    data.strokes.forEach((_, stepIdx) => {
+      // Create container for step
+      const stepContainer = document.createElement('div');
+      stepContainer.className = 'step-frame';
+      
+      // Create step number badge
+      const stepNumber = document.createElement('div');
+      stepNumber.className = 'step-number';
+      stepNumber.textContent = stepIdx + 1;
+      stepContainer.appendChild(stepNumber);
+      
+      // 1) create an <svg> element
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'svg-canvas');
+      svg.setAttribute('width', smallW);
+      svg.setAttribute('height', smallH);
+
+      // 2) create a <g> with the proper transform
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('transform', HanziWriter.getScalingTransform(smallW, smallH, smallP).transform);
+      svg.appendChild(g);
+
+      // 3) draw strokes 0…stepIdx
+      for (let j = 0; j <= stepIdx; j++) {
+        const p = document.createElementNS(SVG_NS, 'path');
+        p.setAttribute('d', data.strokes[j]);
+        p.setAttribute('stroke', colors[j]);
+        p.setAttribute('stroke-width', 6);
+        p.setAttribute('stroke-linecap', 'round');
+        p.setAttribute('stroke-linejoin', 'round');
+        p.setAttribute('fill', 'none');
+        g.appendChild(p);
+      }
+
+      // 4) append this SVG to the container
+      stepContainer.appendChild(svg);
+      breakdown.appendChild(stepContainer);
+      
+      // Add click event to animate up to this step
+      stepContainer.addEventListener('click', () => {
+        resetAnimation();
+        animateToStep(stepIdx);
+      });
+    });
+  }
+
+  // ─── Animation Functions ─────────────────────────────────────────
+  function animateStrokes() {
+    if (animating) return;
+    
+    animating = true;
+    animateBtn.disabled = true;
+    
+    const mainSvg = document.getElementById('main-svg');
+    const paths = Array.from(mainSvg.querySelectorAll('.stroke-path'));
+    
+    resetAnimation();
+    
+    paths.forEach((p, i) => {
+      setTimeout(() => {
+        p.classList.add('active');
+        // Use animation for stroke drawing effect
+        p.classList.add('animated');
+      }, i * revealDelay);
+    });
+    
+    // Enable button after animation completes
+    setTimeout(() => {
+      animateBtn.disabled = false;
+      animating = false;
+    }, paths.length * revealDelay + 1500); // Add extra time for final animation
+  }
+
+  function animateToStep(targetStep) {
+    if (animating) return;
+    
+    animating = true;
+    
+    const mainSvg = document.getElementById('main-svg');
+    const paths = Array.from(mainSvg.querySelectorAll('.stroke-path'));
+    
+    for (let i = 0; i <= targetStep; i++) {
+      setTimeout(() => {
+        if (paths[i]) {
+          paths[i].classList.add('active');
+          paths[i].classList.add('animated');
+        }
+      }, i * 200); // Faster animation for step-clicking
+    }
+    
+    setTimeout(() => {
+      animating = false;
+    }, targetStep * 200 + 1000);
+  }
+
+  function resetAnimation() {
+    const mainSvg = document.getElementById('main-svg');
+    const paths = mainSvg.querySelectorAll('.stroke-path');
+    
+    paths.forEach(p => {
+      p.classList.remove('active');
+      p.classList.remove('animated');
+      
+      // Reset animation (technique to restart CSS animations)
+      void p.offsetWidth; // Trigger reflow
+    });
+    
+    animateBtn.disabled = false;
+    animating = false;
+  }
+
+  // Initialize the UI
+  initializeUI();
+  renderCharacter();
+</script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
